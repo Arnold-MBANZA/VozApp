@@ -71,6 +71,23 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(job["lesson_title"], "Le sacerdoce dans Hébreux")
         self.assertEqual(job["lesson_date"], "2026-09-18")
         self.assertIn("Igreja", job["transcript"])
+        unclassified = self.client.patch(
+            f"/api/jobs/{job_id}", headers=headers, json={"course_id": None}
+        )
+        self.assertEqual(unclassified.status_code, 200, unclassified.text)
+        self.assertIsNone(unclassified.json()["job"]["course_id"])
+        reclassified = self.client.patch(
+            f"/api/jobs/{job_id}",
+            headers=headers,
+            json={
+                "course_id": course_id,
+                "lesson_title": "Séance existante reclassée",
+                "lesson_date": "2026-09-19",
+            },
+        )
+        self.assertEqual(reclassified.status_code, 200, reclassified.text)
+        self.assertEqual(reclassified.json()["job"]["course_id"], course_id)
+        self.assertEqual(reclassified.json()["job"]["lesson_title"], "Séance existante reclassée")
         self.assertEqual(self.client.get(f"/api/jobs/{job_id}/audio", headers=headers).content, b"demo audio")
         txt = self.client.get(f"/api/jobs/{job_id}/download/txt", headers=headers)
         docx = self.client.get(f"/api/jobs/{job_id}/download/docx", headers=headers)
@@ -91,6 +108,10 @@ class ApiFlowTests(unittest.TestCase):
         )
         self.assertEqual(archived.status_code, 200)
         self.assertTrue(archived.json()["course"]["is_archived"])
+        rejected_move = self.client.patch(
+            f"/api/jobs/{job_id}", headers=headers, json={"course_id": course_id}
+        )
+        self.assertEqual(rejected_move.status_code, 409)
         rejected = self.client.post(
             "/api/jobs",
             headers=headers,

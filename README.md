@@ -13,6 +13,7 @@ VozLocal est une application web complète de transcription de cours en portugai
 - historique privé avec audio et texte brut associés ;
 - module « Mes cours » avec cartes, enseignant, couleur et archivage ;
 - classement des séances par cours, titre et date, avec catégorie automatique « Sans cours » ;
+- reclassement en lot des audios et transcriptions déjà existants dans un cours ;
 - filtres d’historique par cours, date et statut ;
 - copie du texte et téléchargements TXT et DOCX ;
 - suppression indépendante de l’audio, du texte, ou des deux ;

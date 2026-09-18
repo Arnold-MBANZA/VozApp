@@ -147,6 +147,12 @@ class CourseUpdatePayload(BaseModel):
     is_archived: bool | None = None
 
 
+class JobMetadataPayload(BaseModel):
+    course_id: int | None = None
+    lesson_title: str | None = None
+    lesson_date: str | None = None
+
+
 class AttemptLimiter:
     def __init__(
         self,
@@ -848,6 +854,55 @@ def job_detail(
             include_text=True,
         ),
     }
+
+
+@app.patch("/api/jobs/{job_id}")
+def update_job_metadata(
+    job_id: str,
+    payload: JobMetadataPayload,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, Any]:
+    job = owned_job(job_id, user)
+    changes: dict[str, Any] = {}
+
+    if "course_id" in payload.model_fields_set:
+        if payload.course_id is not None:
+            course = database.get_course(payload.course_id, job["user_id"])
+            if not course:
+                raise HTTPException(status_code=404, detail="Cours introuvable.")
+            if course["is_archived"]:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Ce cours est archivé. Réactivez-le avant d’y ajouter une séance.",
+                )
+        changes["course_id"] = payload.course_id
+
+    if "lesson_title" in payload.model_fields_set:
+        clean_title = " ".join((payload.lesson_title or "").strip().split())
+        if len(clean_title) > 120:
+            raise HTTPException(
+                status_code=400,
+                detail="Le titre de la séance ne peut pas dépasser 120 caractères.",
+            )
+        changes["lesson_title"] = clean_title
+
+    if "lesson_date" in payload.model_fields_set:
+        clean_date = (payload.lesson_date or "").strip() or None
+        if clean_date:
+            try:
+                date.fromisoformat(clean_date)
+            except ValueError as exc:
+                raise HTTPException(
+                    status_code=400,
+                    detail="La date du cours est invalide.",
+                ) from exc
+        changes["lesson_date"] = clean_date
+
+    if not changes:
+        raise HTTPException(status_code=400, detail="Aucune modification fournie.")
+
+    database.update_job(job_id, **changes)
+    return {"job": owned_job(job_id, user, include_text=True)}
 
 
 @app.get("/api/jobs/{job_id}/audio")

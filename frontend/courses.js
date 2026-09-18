@@ -1,5 +1,8 @@
 (() => {
-  const state = { user: null, courses: [], jobs: [], selected: null, editing: null };
+  const state = {
+    user: null, courses: [], jobs: [], selected: null, editing: null,
+    selectedExisting: new Set()
+  };
   const $ = (id) => document.getElementById(id);
   const statusMap = {
     queued: ["En attente", "state-warning"], loading: ["Chargement", "state-warning"],
@@ -111,6 +114,8 @@
     $("edit-course").hidden = isUnassigned;
     $("archive-course").hidden = isUnassigned;
     $("delete-course").hidden = isUnassigned;
+    $("attach-existing").hidden = isUnassigned || course.is_archived;
+    $("add-course-audio").hidden = course.is_archived;
     $("archive-course").textContent = course.is_archived ? "Réactiver" : "Archiver";
     $("add-course-audio").href = isUnassigned ? "/app#new-transcription" : `/app?course=${course.id}#new-transcription`;
     $("course-jobs-empty").hidden = jobs.length > 0;
@@ -140,6 +145,75 @@
   }
 
   function closeCourseDialog() { $("course-dialog").close(); }
+
+  function existingCandidates() {
+    if (!state.selected || state.selected.id === "none") return [];
+    const query = $("existing-search").value.trim().toLowerCase();
+    return state.jobs.filter((job) => {
+      const searchable = `${job.lesson_title || ""} ${job.filename} ${job.course_name || "Sans cours"}`.toLowerCase();
+      return job.course_id !== state.selected.id && searchable.includes(query);
+    });
+  }
+
+  function selectedExistingIds() {
+    return [...state.selectedExisting];
+  }
+
+  function updateExistingSelection() {
+    const count = selectedExistingIds().length;
+    $("existing-selected-count").textContent = `${count} séance${count > 1 ? "s" : ""} sélectionnée${count > 1 ? "s" : ""}`;
+    $("attach-selected").disabled = count === 0;
+  }
+
+  function renderExistingCandidates() {
+    const candidates = existingCandidates();
+    $("existing-jobs-empty").hidden = candidates.length > 0;
+    $("existing-jobs-list").innerHTML = candidates.map((job) => `
+      <label class="existing-job-row">
+        <input type="checkbox" name="existing-job" value="${job.id}" ${state.selectedExisting.has(job.id) ? "checked" : ""} />
+        <span class="doc-icon">T</span>
+        <span class="existing-job-copy"><strong>${Voz.escape(job.lesson_title || job.filename)}</strong><small>${Voz.escape(job.filename)} · ${Voz.escape(job.course_name || "Sans cours")}</small></span>
+        <span>${job.lesson_date ? Voz.formatDay(job.lesson_date) : Voz.formatDay(job.created_at)}</span>
+      </label>
+    `).join("");
+    document.querySelectorAll('[name="existing-job"]').forEach((input) => input.addEventListener("change", () => {
+      if (input.checked) state.selectedExisting.add(input.value);
+      else state.selectedExisting.delete(input.value);
+      updateExistingSelection();
+    }));
+    updateExistingSelection();
+  }
+
+  function openExistingDialog() {
+    if (!state.selected || state.selected.id === "none" || state.selected.is_archived) return;
+    state.selectedExisting.clear();
+    $("existing-search").value = "";
+    $("existing-dialog-copy").textContent = `Sélectionnez les contenus à classer dans « ${state.selected.name} ». Aucun audio ne sera déplacé.`;
+    renderExistingCandidates();
+    $("existing-dialog").showModal();
+  }
+
+  function closeExistingDialog() { $("existing-dialog").close(); }
+
+  async function attachSelectedJobs() {
+    const jobIds = selectedExistingIds();
+    if (!jobIds.length || !state.selected || state.selected.id === "none") return;
+    $("attach-selected").disabled = true;
+    try {
+      await Promise.all(jobIds.map((jobId) => Voz.api(`/api/jobs/${jobId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ course_id: state.selected.id })
+      })));
+      const selectedId = state.selected.id;
+      closeExistingDialog();
+      Voz.toast(`${jobIds.length} séance${jobIds.length > 1 ? "s ont" : " a"} été ajoutée${jobIds.length > 1 ? "s" : ""} au cours.`);
+      await loadData();
+      await selectCourse(selectedId);
+    } catch (error) {
+      Voz.toast(error.message, true);
+      $("attach-selected").disabled = false;
+    }
+  }
 
   async function saveCourse(event) {
     event.preventDefault();
@@ -200,6 +274,11 @@
     $("course-search").addEventListener("input", renderCourses);
     $("show-archived").addEventListener("change", renderCourses);
     $("edit-course").addEventListener("click", () => openCourseDialog(state.selected));
+    $("attach-existing").addEventListener("click", openExistingDialog);
+    $("existing-search").addEventListener("input", renderExistingCandidates);
+    document.querySelectorAll("[data-close-existing]").forEach((button) => button.addEventListener("click", closeExistingDialog));
+    $("existing-dialog").addEventListener("click", (event) => { if (event.target === $("existing-dialog")) closeExistingDialog(); });
+    $("attach-selected").addEventListener("click", attachSelectedJobs);
     $("archive-course").addEventListener("click", toggleArchive);
     $("delete-course").addEventListener("click", () => $("delete-course-dialog").showModal());
     $("delete-course-dialog").addEventListener("close", () => {

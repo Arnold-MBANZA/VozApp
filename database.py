@@ -352,9 +352,9 @@ def update_job(job_id: str, **changes: Any) -> None:
     if not changes:
         return
     allowed = {
-        "stored_audio_name", "audio_size", "audio_deleted", "transcript", "segments_json",
-        "text_deleted", "status", "progress", "message", "error", "duration_seconds",
-        "completed_at",
+        "course_id", "lesson_title", "lesson_date", "stored_audio_name", "audio_size",
+        "audio_deleted", "transcript", "segments_json", "text_deleted", "status",
+        "progress", "message", "error", "duration_seconds", "completed_at",
     }
     payload = {key: value for key, value in changes.items() if key in allowed}
     payload["updated_at"] = utc_now()
