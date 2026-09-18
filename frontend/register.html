@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Créer un compte — VozLocal</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body class="auth-page" data-auth-mode="register">
+    <main class="auth-layout">
+      <section class="auth-aside">
+        <a class="brand brand-light" href="/"><span class="brand-symbol"><i></i><i></i><i></i><i></i></span><span>VozLocal</span></a>
+        <div class="auth-quote">
+          <p>Un espace clair pour conserver vos cours, retrouver chaque audio et exploiter vos textes.</p>
+          <span>Tout votre travail au même endroit</span>
+        </div>
+        <div class="auth-aside-foot">Le premier compte créé devient administrateur.</div>
+      </section>
+      <section class="auth-content">
+        <div class="auth-card">
+          <a class="back-link" href="/">← Retour à l’accueil</a>
+          <div class="auth-heading"><span class="eyebrow">CRÉER VOTRE ESPACE</span><h1>Commencez maintenant</h1><p>Quelques informations suffisent pour ouvrir votre compte.</p></div>
+          <div class="form-alert" id="form-alert" hidden></div>
+          <form id="auth-form" novalidate>
+            <label class="form-field"><span>Nom complet</span><input name="name" type="text" autocomplete="name" placeholder="Votre nom" minlength="2" maxlength="80" required /></label>
+            <label class="form-field"><span>Adresse e-mail</span><input name="email" type="email" autocomplete="email" placeholder="vous@exemple.com" required /></label>
+            <label class="form-field"><span>Mot de passe</span><span class="password-field"><input name="password" type="password" autocomplete="new-password" placeholder="10 caractères minimum" minlength="10" required /><button type="button" class="password-toggle" aria-label="Afficher le mot de passe">Afficher</button></span></label>
+            <label class="form-field"><span>Confirmer le mot de passe</span><input name="confirm_password" type="password" autocomplete="new-password" placeholder="Répétez le mot de passe" minlength="10" required /></label>
+            <button class="button button-primary button-full" type="submit"><span>Créer mon compte</span><span>→</span></button>
+          </form>
+          <p class="auth-switch">Vous avez déjà un compte ? <a href="/login">Se connecter</a></p>
+        </div>
+      </section>
+    </main>
+    <script src="/assets/config.js"></script><script src="/assets/core.js"></script><script src="/assets/auth.js"></script>
+  </body>
+</html>

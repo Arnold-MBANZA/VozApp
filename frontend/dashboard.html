@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Tableau de bord — VozLocal</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body class="app-page">
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="/app"><span class="brand-symbol"><i></i><i></i><i></i><i></i></span><span>VozLocal</span></a>
+        <nav class="sidebar-nav">
+          <a class="active" href="#overview" data-section-link="overview"><span class="nav-icon">⌂</span>Vue d’ensemble</a>
+          <a href="#new-transcription" data-section-link="new-transcription"><span class="nav-icon">＋</span>Nouvelle transcription</a>
+          <a href="#history" data-section-link="history"><span class="nav-icon">≡</span>Historique</a>
+          <a href="/admin" id="admin-link" hidden><span class="nav-icon">◇</span>Administration</a>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="server-card"><span class="server-dot" id="server-dot"></span><div><strong id="server-label">Connexion au serveur</strong><small id="server-device">Vérification…</small></div></div>
+          <button class="nav-logout" id="logout-button"><span class="nav-icon">↪</span>Déconnexion</button>
+        </div>
+      </aside>
+
+      <main class="app-main">
+        <header class="app-header">
+          <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Ouvrir le menu">☰</button>
+          <div><p class="page-kicker">ESPACE PERSONNEL</p><h1>Bonjour, <span id="user-firstname">—</span></h1></div>
+          <div class="user-menu"><span class="avatar" id="user-avatar">—</span><div><strong id="user-name">Chargement…</strong><small id="user-role">Utilisateur</small></div></div>
+        </header>
+
+        <div class="app-content">
+          <section id="overview">
+            <div class="section-title-row"><div><h2>Vue d’ensemble</h2><p>Suivez votre activité et retrouvez vos derniers contenus.</p></div><a class="button button-primary button-small" href="#new-transcription">Nouvelle transcription</a></div>
+            <div class="stats-grid">
+              <article class="stat-card"><span class="stat-icon">T</span><div><small>Transcriptions</small><strong id="stat-total">0</strong></div></article>
+              <article class="stat-card"><span class="stat-icon">✓</span><div><small>Terminées</small><strong id="stat-completed">0</strong></div></article>
+              <article class="stat-card"><span class="stat-icon">♪</span><div><small>Audios conservés</small><strong id="stat-audios">0</strong></div></article>
+              <article class="stat-card"><span class="stat-icon">□</span><div><small>Espace audio</small><strong id="stat-storage">0 Mo</strong></div></article>
+            </div>
+          </section>
+
+          <section class="content-card upload-card" id="new-transcription">
+            <div class="card-heading"><div><span class="card-index">01</span><div><h2>Nouvelle transcription</h2><p>Importez un cours et laissez VozLocal préparer le texte brut.</p></div></div><span class="format-note">M4A · MP3 · WAV · FLAC · OGG · WEBM · MP4</span></div>
+            <div class="upload-grid">
+              <label class="dropzone" id="dropzone" for="audio-input">
+                <input id="audio-input" type="file" accept="audio/*,.m4a,.mp4,.webm" hidden />
+                <span class="drop-icon">↑</span>
+                <strong id="drop-title">Déposez votre fichier audio</strong>
+                <span id="drop-subtitle">ou cliquez pour parcourir votre ordinateur</span>
+                <span class="button button-secondary button-small" id="drop-button">Choisir un fichier</span>
+              </label>
+              <div class="upload-options">
+                <label class="form-field"><span>Contexte du cours <em>facultatif</em></span><textarea id="context-prompt" maxlength="500" rows="5" placeholder="Ex. ecclésiologie, noms propres, vocabulaire spécifique…"></textarea><small>Aide le moteur à reconnaître les termes particuliers.</small></label>
+                <div class="output-summary"><span>Formats disponibles après traitement</span><div><b>TXT</b><b>DOCX</b><b>Copier</b></div></div>
+                <button class="button button-primary button-full" id="start-button" disabled>Commencer la transcription <span>→</span></button>
+              </div>
+            </div>
+            <div class="job-progress" id="job-progress" hidden>
+              <div class="progress-header"><div><span class="spinner"></span><div><strong id="progress-message">Préparation…</strong><small id="progress-file">—</small></div></div><b id="progress-value">0 %</b></div>
+              <div class="progress-track"><span id="progress-bar"></span></div>
+              <p>Vous pouvez continuer à consulter votre historique pendant le traitement.</p>
+            </div>
+          </section>
+
+          <section class="content-card" id="history">
+            <div class="card-heading history-heading"><div><span class="card-index">02</span><div><h2>Historique</h2><p>Vos audios et leurs transcriptions, réunis au même endroit.</p></div></div><label class="search-field"><span>⌕</span><input id="history-search" type="search" placeholder="Rechercher un fichier…" /></label></div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Fichier</th><th>Date</th><th>Durée</th><th>Contenu conservé</th><th>État</th><th></th></tr></thead>
+                <tbody id="history-body"></tbody>
+              </table>
+              <div class="empty-table" id="history-empty" hidden><span>□</span><strong>Aucune transcription</strong><p>Votre première transcription apparaîtra ici.</p></div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <dialog class="detail-dialog" id="detail-dialog">
+      <div class="dialog-shell">
+        <header><div><span class="eyebrow">DÉTAIL DE LA TRANSCRIPTION</span><h2 id="detail-title">—</h2><p id="detail-meta">—</p></div><button class="icon-button" data-close-dialog aria-label="Fermer">×</button></header>
+        <div class="audio-block" id="audio-block"><div><span class="stat-icon">♪</span><div><strong>Enregistrement original</strong><small id="audio-filename">—</small></div></div><audio id="audio-player" controls preload="metadata"></audio></div>
+        <div class="transcript-heading"><div><h3>Texte brut</h3><p>Contenu produit directement par le moteur de transcription.</p></div><div class="detail-actions"><button class="button button-secondary button-small" id="copy-text">Copier</button><button class="button button-secondary button-small" data-download="txt">TXT</button><button class="button button-secondary button-small" data-download="docx">Word</button></div></div>
+        <article class="raw-transcript" id="raw-transcript"></article>
+        <div class="deleted-notice" id="text-deleted" hidden>Le texte de cette transcription a été supprimé.</div>
+        <footer class="danger-zone"><div><strong>Gérer la conservation</strong><p>Ces suppressions sont définitives.</p></div><div><button class="button button-danger-quiet button-small" data-delete="audio">Supprimer l’audio</button><button class="button button-danger-quiet button-small" data-delete="text">Supprimer le texte</button><button class="button button-danger button-small" data-delete="both">Tout supprimer</button></div></footer>
+      </div>
+    </dialog>
+
+    <dialog class="confirm-dialog" id="confirm-dialog"><form method="dialog"><span class="confirm-icon">!</span><h3 id="confirm-title">Confirmer la suppression</h3><p id="confirm-copy">Cette action est définitive.</p><div><button class="button button-secondary" value="cancel">Annuler</button><button class="button button-danger" id="confirm-action" value="confirm">Supprimer</button></div></form></dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/assets/config.js"></script><script src="/assets/core.js"></script><script src="/assets/dashboard.js"></script>
+  </body>
+</html>

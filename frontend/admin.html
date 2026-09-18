@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Administration — VozLocal</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body class="app-page admin-page">
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="/app"><span class="brand-symbol"><i></i><i></i><i></i><i></i></span><span>VozLocal</span></a>
+        <nav class="sidebar-nav"><a href="/app"><span class="nav-icon">⌂</span>Espace utilisateur</a><a class="active" href="#admin-overview"><span class="nav-icon">◇</span>Vue d’ensemble</a><a href="#users"><span class="nav-icon">♙</span>Utilisateurs</a><a href="#activity"><span class="nav-icon">≡</span>Activité</a></nav>
+        <div class="sidebar-bottom"><button class="nav-logout" id="logout-button"><span class="nav-icon">↪</span>Déconnexion</button></div>
+      </aside>
+      <main class="app-main">
+        <header class="app-header"><button class="sidebar-toggle" id="sidebar-toggle" aria-label="Ouvrir le menu">☰</button><div><p class="page-kicker">ADMINISTRATION</p><h1>Pilotage de VozLocal</h1></div><div class="user-menu"><span class="avatar" id="user-avatar">—</span><div><strong id="user-name">Administrateur</strong><small>Administrateur</small></div></div></header>
+        <div class="app-content">
+          <section id="admin-overview"><div class="section-title-row"><div><h2>Vue d’ensemble</h2><p>Indicateurs d’utilisation et état général du service.</p></div><span class="state-pill state-success">Service opérationnel</span></div>
+            <div class="stats-grid admin-stats"><article class="stat-card"><span class="stat-icon">♙</span><div><small>Utilisateurs</small><strong id="stat-users">0</strong></div></article><article class="stat-card"><span class="stat-icon">T</span><div><small>Transcriptions</small><strong id="stat-jobs">0</strong></div></article><article class="stat-card"><span class="stat-icon">◷</span><div><small>En traitement</small><strong id="stat-active">0</strong></div></article><article class="stat-card"><span class="stat-icon">□</span><div><small>Stockage audio</small><strong id="stat-storage">0 Mo</strong></div></article></div>
+          </section>
+          <section class="content-card" id="users"><div class="card-heading history-heading"><div><span class="card-index">01</span><div><h2>Utilisateurs</h2><p>Comptes autorisés à accéder à la plateforme.</p></div></div><label class="search-field"><span>⌕</span><input id="user-search" type="search" placeholder="Rechercher un utilisateur…" /></label></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Utilisateur</th><th>Rôle</th><th>Inscription</th><th>Transcriptions</th><th>Statut</th><th></th></tr></thead><tbody id="users-body"></tbody></table></div></section>
+          <section class="content-card" id="activity"><div class="card-heading"><div><span class="card-index">02</span><div><h2>Activité récente</h2><p>Dernières transcriptions lancées sur la plateforme.</p></div></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Fichier</th><th>Propriétaire</th><th>Date</th><th>Taille</th><th>État</th></tr></thead><tbody id="admin-jobs-body"></tbody></table><div class="empty-table" id="activity-empty" hidden><span>□</span><strong>Aucune activité</strong></div></div></section>
+        </div>
+      </main>
+    </div>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/assets/config.js"></script><script src="/assets/core.js"></script><script src="/assets/admin.js"></script>
+  </body>
+</html>

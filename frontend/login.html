@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Connexion — VozLocal</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body class="auth-page" data-auth-mode="login">
+    <main class="auth-layout">
+      <section class="auth-aside">
+        <a class="brand brand-light" href="/"><span class="brand-symbol"><i></i><i></i><i></i><i></i></span><span>VozLocal</span></a>
+        <div class="auth-quote">
+          <p>« Une parole enregistrée devient une ressource lorsqu’elle est retrouvable, lisible et exploitable. »</p>
+          <span>Votre espace de transcription</span>
+        </div>
+        <div class="auth-aside-foot">Traitement privé · Historique personnel · Export Word</div>
+      </section>
+      <section class="auth-content">
+        <div class="auth-card">
+          <a class="back-link" href="/">← Retour à l’accueil</a>
+          <div class="auth-heading"><span class="eyebrow">BON RETOUR</span><h1>Connectez-vous</h1><p>Accédez à vos transcriptions et à votre historique.</p></div>
+          <div class="form-alert" id="form-alert" hidden></div>
+          <form id="auth-form" novalidate>
+            <label class="form-field"><span>Adresse e-mail</span><input name="email" type="email" autocomplete="email" placeholder="vous@exemple.com" required /></label>
+            <label class="form-field"><span>Mot de passe</span><span class="password-field"><input name="password" type="password" autocomplete="current-password" placeholder="Votre mot de passe" required /><button type="button" class="password-toggle" aria-label="Afficher le mot de passe">Afficher</button></span></label>
+            <button class="button button-primary button-full" type="submit"><span>Se connecter</span><span>→</span></button>
+          </form>
+          <p class="auth-switch">Vous n’avez pas encore de compte ? <a href="/register">Créer un compte</a></p>
+        </div>
+      </section>
+    </main>
+    <script src="/assets/config.js"></script><script src="/assets/core.js"></script><script src="/assets/auth.js"></script>
+  </body>
+</html>
