@@ -58,9 +58,24 @@ def initialize_database() -> None:
                 expires_at TEXT NOT NULL
             );
 
+            CREATE TABLE IF NOT EXISTS courses (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                name TEXT NOT NULL COLLATE NOCASE,
+                teacher TEXT NOT NULL DEFAULT '',
+                color TEXT NOT NULL DEFAULT '#0d6b53',
+                is_archived INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(user_id, name)
+            );
+
             CREATE TABLE IF NOT EXISTS jobs (
                 id TEXT PRIMARY KEY,
                 user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL,
+                lesson_title TEXT NOT NULL DEFAULT '',
+                lesson_date TEXT,
                 filename TEXT NOT NULL,
                 stored_audio_name TEXT,
                 audio_size INTEGER NOT NULL DEFAULT 0,
@@ -82,7 +97,24 @@ def initialize_database() -> None:
             CREATE INDEX IF NOT EXISTS idx_sessions_token ON sessions(token_hash);
             CREATE INDEX IF NOT EXISTS idx_jobs_user_created ON jobs(user_id, created_at DESC);
             CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+            CREATE INDEX IF NOT EXISTS idx_courses_user_name ON courses(user_id, name);
             """
+        )
+        job_columns = {
+            row["name"] for row in database.execute("PRAGMA table_info(jobs)").fetchall()
+        }
+        if "course_id" not in job_columns:
+            database.execute(
+                "ALTER TABLE jobs ADD COLUMN course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL"
+            )
+        if "lesson_title" not in job_columns:
+            database.execute(
+                "ALTER TABLE jobs ADD COLUMN lesson_title TEXT NOT NULL DEFAULT ''"
+            )
+        if "lesson_date" not in job_columns:
+            database.execute("ALTER TABLE jobs ADD COLUMN lesson_date TEXT")
+        database.execute(
+            "CREATE INDEX IF NOT EXISTS idx_jobs_course_created ON jobs(course_id, created_at DESC)"
         )
         database.execute(
             """
@@ -203,20 +235,115 @@ def revoke_session(token: str) -> None:
         database.execute("DELETE FROM sessions WHERE token_hash = ?", (token_hash,))
 
 
+def serialize_course(row: sqlite3.Row) -> dict[str, Any]:
+    keys = row.keys()
+    return {
+        "id": int(row["id"]),
+        "name": row["name"],
+        "teacher": row["teacher"],
+        "color": row["color"],
+        "is_archived": bool(row["is_archived"]),
+        "created_at": row["created_at"],
+        "updated_at": row["updated_at"],
+        "job_count": int(row["job_count"] or 0) if "job_count" in keys else 0,
+        "completed_count": (
+            int(row["completed_count"] or 0) if "completed_count" in keys else 0
+        ),
+        "latest_job_at": row["latest_job_at"] if "latest_job_at" in keys else None,
+    }
+
+
+def create_course(user_id: int, name: str, teacher: str, color: str) -> dict[str, Any]:
+    now = utc_now()
+    with connection() as database:
+        cursor = database.execute(
+            """
+            INSERT INTO courses (user_id, name, teacher, color, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (user_id, name, teacher, color, now, now),
+        )
+        row = database.execute(
+            "SELECT * FROM courses WHERE id = ?", (cursor.lastrowid,)
+        ).fetchone()
+    return serialize_course(row)
+
+
+def get_course(course_id: int, user_id: int) -> dict[str, Any] | None:
+    with connection() as database:
+        row = database.execute(
+            """
+            SELECT c.*, COUNT(j.id) AS job_count,
+                   SUM(CASE WHEN j.status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+                   MAX(j.created_at) AS latest_job_at
+            FROM courses c
+            LEFT JOIN jobs j ON j.course_id = c.id
+            WHERE c.id = ? AND c.user_id = ?
+            GROUP BY c.id
+            """,
+            (course_id, user_id),
+        ).fetchone()
+    return serialize_course(row) if row else None
+
+
+def list_courses(user_id: int, *, include_archived: bool = True) -> list[dict[str, Any]]:
+    where = "c.user_id = ?" if include_archived else "c.user_id = ? AND c.is_archived = 0"
+    with connection() as database:
+        rows = database.execute(
+            f"""
+            SELECT c.*, COUNT(j.id) AS job_count,
+                   SUM(CASE WHEN j.status = 'completed' THEN 1 ELSE 0 END) AS completed_count,
+                   MAX(j.created_at) AS latest_job_at
+            FROM courses c
+            LEFT JOIN jobs j ON j.course_id = c.id
+            WHERE {where}
+            GROUP BY c.id
+            ORDER BY c.is_archived, c.name COLLATE NOCASE
+            """,
+            (user_id,),
+        ).fetchall()
+    return [serialize_course(row) for row in rows]
+
+
+def update_course(course_id: int, user_id: int, **changes: Any) -> dict[str, Any] | None:
+    allowed = {"name", "teacher", "color", "is_archived"}
+    payload = {key: value for key, value in changes.items() if key in allowed}
+    if not payload:
+        return get_course(course_id, user_id)
+    payload["updated_at"] = utc_now()
+    assignments = ", ".join(f"{key} = ?" for key in payload)
+    with connection() as database:
+        cursor = database.execute(
+            f"UPDATE courses SET {assignments} WHERE id = ? AND user_id = ?",
+            (*payload.values(), course_id, user_id),
+        )
+    return get_course(course_id, user_id) if cursor.rowcount else None
+
+
+def delete_course(course_id: int, user_id: int) -> bool:
+    with connection() as database:
+        cursor = database.execute(
+            "DELETE FROM courses WHERE id = ? AND user_id = ?", (course_id, user_id)
+        )
+    return cursor.rowcount > 0
+
+
 def insert_job(job: dict[str, Any]) -> None:
     now = utc_now()
     with connection() as database:
         database.execute(
             """
             INSERT INTO jobs (
-                id, user_id, filename, stored_audio_name, audio_size, status,
-                progress, message, prompt, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                id, user_id, course_id, lesson_title, lesson_date, filename,
+                stored_audio_name, audio_size, status, progress, message, prompt,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
-                job["id"], job["user_id"], job["filename"], job["stored_audio_name"],
-                job["audio_size"], job["status"], job["progress"], job["message"],
-                job.get("prompt", ""), now, now,
+                job["id"], job["user_id"], job.get("course_id"),
+                job.get("lesson_title", ""), job.get("lesson_date"), job["filename"],
+                job["stored_audio_name"], job["audio_size"], job["status"],
+                job["progress"], job["message"], job.get("prompt", ""), now, now,
             ),
         )
 
@@ -244,6 +371,11 @@ def serialize_job(row: sqlite3.Row, *, include_text: bool = False) -> dict[str, 
         "id": row["id"],
         "user_id": int(row["user_id"]),
         "filename": row["filename"],
+        "course_id": int(row["course_id"]) if row["course_id"] is not None else None,
+        "course_name": row["course_name"] if "course_name" in row.keys() else None,
+        "course_color": row["course_color"] if "course_color" in row.keys() else None,
+        "lesson_title": row["lesson_title"] or "",
+        "lesson_date": row["lesson_date"],
         "status": row["status"],
         "progress": int(row["progress"]),
         "message": row["message"],
@@ -265,10 +397,14 @@ def serialize_job(row: sqlite3.Row, *, include_text: bool = False) -> dict[str, 
 
 
 def get_job(job_id: str, user_id: int | None = None, *, include_text: bool = False) -> dict[str, Any] | None:
-    query = "SELECT * FROM jobs WHERE id = ?"
+    query = """
+        SELECT j.*, c.name AS course_name, c.color AS course_color
+        FROM jobs j LEFT JOIN courses c ON c.id = j.course_id
+        WHERE j.id = ?
+    """
     params: tuple[Any, ...] = (job_id,)
     if user_id is not None:
-        query += " AND user_id = ?"
+        query += " AND j.user_id = ?"
         params += (user_id,)
     with connection() as database:
         row = database.execute(query, params).fetchone()
@@ -281,19 +417,42 @@ def get_job_record(job_id: str) -> sqlite3.Row | None:
 
 
 def list_jobs(user_id: int | None = None, *, limit: int = 100) -> list[dict[str, Any]]:
-    limit = max(1, min(200, limit))
+    limit = max(1, min(500, limit))
     if user_id is None:
         query = """
-            SELECT j.*, u.name AS owner_name, u.email AS owner_email
+            SELECT j.*, u.name AS owner_name, u.email AS owner_email,
+                   c.name AS course_name, c.color AS course_color
             FROM jobs j JOIN users u ON u.id = j.user_id
+            LEFT JOIN courses c ON c.id = j.course_id
             ORDER BY j.created_at DESC LIMIT ?
         """
         params: tuple[Any, ...] = (limit,)
     else:
-        query = "SELECT * FROM jobs WHERE user_id = ? ORDER BY created_at DESC LIMIT ?"
+        query = """
+            SELECT j.*, c.name AS course_name, c.color AS course_color
+            FROM jobs j LEFT JOIN courses c ON c.id = j.course_id
+            WHERE j.user_id = ? ORDER BY j.created_at DESC LIMIT ?
+        """
         params = (user_id, limit)
     with connection() as database:
         rows = database.execute(query, params).fetchall()
+    return [serialize_job(row) for row in rows]
+
+
+def list_course_jobs(course_id: int, user_id: int, *, limit: int = 500) -> list[dict[str, Any]]:
+    limit = max(1, min(500, limit))
+    with connection() as database:
+        rows = database.execute(
+            """
+            SELECT j.*, c.name AS course_name, c.color AS course_color
+            FROM jobs j JOIN courses c ON c.id = j.course_id
+            WHERE j.course_id = ? AND j.user_id = ?
+            ORDER BY COALESCE(j.lesson_date, substr(j.created_at, 1, 10)) DESC,
+                     j.created_at DESC
+            LIMIT ?
+            """,
+            (course_id, user_id, limit),
+        ).fetchall()
     return [serialize_job(row) for row in rows]
 
 

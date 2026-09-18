@@ -11,6 +11,9 @@ VozLocal est une application web complète de transcription de cours en portugai
 - transcription intégrale des audios longs, découpés par FFmpeg en segments de 28 secondes ;
 - stockage persistant dans SQLite ;
 - historique privé avec audio et texte brut associés ;
+- module « Mes cours » avec cartes, enseignant, couleur et archivage ;
+- classement des séances par cours, titre et date, avec catégorie automatique « Sans cours » ;
+- filtres d’historique par cours, date et statut ;
 - copie du texte et téléchargements TXT et DOCX ;
 - suppression indépendante de l’audio, du texte, ou des deux ;
 - accélération Apple Metal, NVIDIA CUDA ou CPU ;
@@ -65,7 +68,7 @@ Les données sont conservées dans :
 
 ```text
 data/
-├── vozlocal.sqlite3       # comptes, sessions, historique et textes
+├── vozlocal.sqlite3       # comptes, cours, sessions, historique et textes
 ├── uploads/               # audios conservés
 └── outputs/               # exports TXT et DOCX
 ```
@@ -78,6 +81,11 @@ python manage.py promote adresse@exemple.com
 ```
 
 Sauvegardez régulièrement le dossier `data/`. Ne le placez jamais dans un dépôt Git public.
+
+La mise à jour crée automatiquement la table `courses` et ajoute les informations de séance
+à la table `jobs`. Les anciens enregistrements restent intacts et apparaissent dans
+la catégorie « Sans cours ». Supprimer un cours ne supprime ni ses audios ni ses textes :
+ils reviennent également dans « Sans cours ».
 
 ## Mettre le site sur Vercel et traiter sur le Mac
 

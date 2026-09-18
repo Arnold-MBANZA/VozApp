@@ -8,6 +8,7 @@ import time
 import uuid
 from collections import defaultdict, deque
 from concurrent.futures import ThreadPoolExecutor
+from datetime import date
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -75,7 +76,7 @@ database.initialize_database()
 
 app = FastAPI(
     title="VozLocal",
-    version="2.0.0",
+    version="2.1.0",
 )
 
 engine = TranscriptionEngine()
@@ -131,6 +132,19 @@ class LoginPayload(BaseModel):
 
 class UserStatusPayload(BaseModel):
     is_active: bool
+
+
+class CoursePayload(BaseModel):
+    name: str
+    teacher: str = ""
+    color: str = "#0d6b53"
+
+
+class CourseUpdatePayload(BaseModel):
+    name: str | None = None
+    teacher: str | None = None
+    color: str | None = None
+    is_archived: bool | None = None
 
 
 class AttemptLimiter:
@@ -272,6 +286,34 @@ def validate_account_fields(
         )
 
     return clean_name, clean_email
+
+
+def validate_course_fields(
+    name: str,
+    teacher: str = "",
+    color: str = "#0d6b53",
+) -> tuple[str, str, str]:
+    clean_name = " ".join(name.strip().split())
+    clean_teacher = " ".join(teacher.strip().split())
+    clean_color = color.strip().lower()
+
+    if len(clean_name) < 2 or len(clean_name) > 80:
+        raise HTTPException(
+            status_code=400,
+            detail="Le nom du cours doit contenir entre 2 et 80 caractères.",
+        )
+    if len(clean_teacher) > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Le nom de l’enseignant ne peut pas dépasser 100 caractères.",
+        )
+    if (
+        len(clean_color) != 7
+        or not clean_color.startswith("#")
+        or any(character not in "0123456789abcdef" for character in clean_color[1:])
+    ):
+        raise HTTPException(status_code=400, detail="Couleur de cours invalide.")
+    return clean_name, clean_teacher, clean_color
 
 
 def auth_response(
@@ -557,6 +599,96 @@ def dashboard(
     }
 
 
+@app.get("/api/courses")
+def courses(
+    include_archived: bool = True,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, Any]:
+    return {
+        "courses": database.list_courses(
+            user["id"],
+            include_archived=include_archived,
+        )
+    }
+
+
+@app.post("/api/courses", status_code=201)
+def create_course(
+    payload: CoursePayload,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, Any]:
+    name, teacher, color = validate_course_fields(
+        payload.name,
+        payload.teacher,
+        payload.color,
+    )
+    try:
+        course = database.create_course(user["id"], name, teacher, color)
+    except Exception as exc:
+        if "UNIQUE constraint failed" in str(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="Vous avez déjà un cours portant ce nom.",
+            ) from exc
+        raise
+    return {"course": course}
+
+
+@app.get("/api/courses/{course_id}")
+def course_detail(
+    course_id: int,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, Any]:
+    course = database.get_course(course_id, user["id"])
+    if not course:
+        raise HTTPException(status_code=404, detail="Cours introuvable.")
+    course_jobs = database.list_course_jobs(course_id, user["id"])
+    return {"course": course, "jobs": course_jobs}
+
+
+@app.patch("/api/courses/{course_id}")
+def update_course(
+    course_id: int,
+    payload: CourseUpdatePayload,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, Any]:
+    current = database.get_course(course_id, user["id"])
+    if not current:
+        raise HTTPException(status_code=404, detail="Cours introuvable.")
+
+    changes: dict[str, Any] = {}
+    if any(field in payload.model_fields_set for field in {"name", "teacher", "color"}):
+        name, teacher, color = validate_course_fields(
+            payload.name if payload.name is not None else current["name"],
+            payload.teacher if payload.teacher is not None else current["teacher"],
+            payload.color if payload.color is not None else current["color"],
+        )
+        changes.update(name=name, teacher=teacher, color=color)
+    if "is_archived" in payload.model_fields_set:
+        changes["is_archived"] = int(bool(payload.is_archived))
+
+    try:
+        course = database.update_course(course_id, user["id"], **changes)
+    except Exception as exc:
+        if "UNIQUE constraint failed" in str(exc):
+            raise HTTPException(
+                status_code=409,
+                detail="Vous avez déjà un cours portant ce nom.",
+            ) from exc
+        raise
+    return {"course": course}
+
+
+@app.delete("/api/courses/{course_id}")
+def delete_course(
+    course_id: int,
+    user: dict[str, Any] = Depends(current_user),
+) -> dict[str, bool]:
+    if not database.delete_course(course_id, user["id"]):
+        raise HTTPException(status_code=404, detail="Cours introuvable.")
+    return {"deleted": True}
+
+
 @app.post(
     "/api/jobs",
     status_code=202,
@@ -564,6 +696,9 @@ def dashboard(
 def create_job(
     audio: Annotated[UploadFile, File()],
     prompt: Annotated[str, Form()] = "",
+    course_id: Annotated[int | None, Form()] = None,
+    lesson_title: Annotated[str, Form()] = "",
+    lesson_date: Annotated[str, Form()] = "",
     user: dict[str, Any] = Depends(current_user),
 ) -> dict[str, Any]:
     original_filename = Path(
@@ -592,6 +727,31 @@ def create_job(
                 "dépasser 500 caractères."
             ),
         )
+
+    clean_lesson_title = " ".join(lesson_title.strip().split())
+    clean_lesson_date = lesson_date.strip() or None
+    if len(clean_lesson_title) > 120:
+        raise HTTPException(
+            status_code=400,
+            detail="Le titre de la séance ne peut pas dépasser 120 caractères.",
+        )
+    if clean_lesson_date:
+        try:
+            date.fromisoformat(clean_lesson_date)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=400,
+                detail="La date du cours est invalide.",
+            ) from exc
+    if course_id is not None:
+        course = database.get_course(course_id, user["id"])
+        if not course:
+            raise HTTPException(status_code=404, detail="Cours introuvable.")
+        if course["is_archived"]:
+            raise HTTPException(
+                status_code=409,
+                detail="Ce cours est archivé. Réactivez-le avant d’ajouter une séance.",
+            )
 
     job_id = uuid.uuid4().hex
     stored_name = f"{job_id}{suffix}"
@@ -633,6 +793,9 @@ def create_job(
         {
             "id": job_id,
             "user_id": user["id"],
+            "course_id": course_id,
+            "lesson_title": clean_lesson_title,
+            "lesson_date": clean_lesson_date,
             "filename": original_filename,
             "stored_audio_name": stored_name,
             "audio_size": written,
@@ -959,6 +1122,14 @@ def register_page() -> FileResponse:
 )
 def dashboard_page() -> FileResponse:
     return page("dashboard.html")
+
+
+@app.get(
+    "/courses",
+    include_in_schema=False,
+)
+def courses_page() -> FileResponse:
+    return page("courses.html")
 
 
 @app.get(

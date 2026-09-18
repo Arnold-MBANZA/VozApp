@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mes cours — VozLocal</title>
+    <link rel="stylesheet" href="/assets/styles.css" />
+  </head>
+  <body class="app-page">
+    <div class="app-shell">
+      <aside class="sidebar" id="sidebar">
+        <a class="brand" href="/app"><span class="brand-symbol"><i></i><i></i><i></i><i></i></span><span>VozLocal</span></a>
+        <nav class="sidebar-nav">
+          <a href="/app"><span class="nav-icon">⌂</span>Vue d’ensemble</a>
+          <a class="active" href="/courses"><span class="nav-icon">▤</span>Mes cours</a>
+          <a href="/app#new-transcription"><span class="nav-icon">＋</span>Nouvelle transcription</a>
+          <a href="/app#history"><span class="nav-icon">≡</span>Historique</a>
+          <a href="/admin" id="admin-link" hidden><span class="nav-icon">◇</span>Administration</a>
+        </nav>
+        <div class="sidebar-bottom">
+          <div class="server-card"><span class="server-dot" id="server-dot"></span><div><strong id="server-label">Connexion au serveur</strong><small id="server-device">Vérification…</small></div></div>
+          <button class="nav-logout" id="logout-button"><span class="nav-icon">↪</span>Déconnexion</button>
+        </div>
+      </aside>
+
+      <main class="app-main">
+        <header class="app-header">
+          <button class="sidebar-toggle" id="sidebar-toggle" aria-label="Ouvrir le menu">☰</button>
+          <div><p class="page-kicker">ORGANISATION</p><h1>Mes cours</h1></div>
+          <div class="user-menu"><span class="avatar" id="user-avatar">—</span><div><strong id="user-name">Chargement…</strong><small id="user-role">Utilisateur</small></div></div>
+        </header>
+
+        <div class="app-content courses-content">
+          <section>
+            <div class="section-title-row courses-title-row">
+              <div><h2>Bibliothèque de cours</h2><p>Regroupez chaque séance, son audio et sa transcription au même endroit.</p></div>
+              <button class="button button-primary button-small" id="create-course">Créer un cours</button>
+            </div>
+            <div class="course-toolbar">
+              <label class="search-field"><span>⌕</span><input id="course-search" type="search" placeholder="Rechercher un cours…" /></label>
+              <label class="archive-toggle"><input id="show-archived" type="checkbox" /> Afficher les cours archivés</label>
+            </div>
+            <div class="course-grid" id="course-grid"></div>
+            <div class="empty-course-state" id="courses-empty" hidden><span>▤</span><h3>Aucun cours pour le moment</h3><p>Créez votre premier cours pour classer vos prochaines transcriptions.</p><button class="button button-primary button-small" data-create-course>Créer un cours</button></div>
+          </section>
+
+          <section class="course-detail-panel" id="course-detail" hidden>
+            <header class="course-detail-header">
+              <div class="course-detail-identity"><span class="course-color-mark" id="detail-course-color"></span><div><p class="page-kicker" id="detail-course-state">COURS</p><h2 id="detail-course-name">—</h2><p id="detail-course-teacher">—</p></div></div>
+              <div class="course-actions">
+                <a class="button button-primary button-small" id="add-course-audio" href="/app#new-transcription">Ajouter un audio</a>
+                <button class="button button-secondary button-small" id="edit-course">Renommer</button>
+                <button class="button button-secondary button-small" id="archive-course">Archiver</button>
+                <button class="button button-danger-quiet button-small" id="delete-course">Supprimer</button>
+              </div>
+            </header>
+            <div class="course-summary-grid">
+              <article><small>Séances</small><strong id="detail-job-count">0</strong></article>
+              <article><small>Terminées</small><strong id="detail-completed-count">0</strong></article>
+              <article><small>Dernière activité</small><strong id="detail-latest">—</strong></article>
+            </div>
+            <div class="content-card course-sessions-card">
+              <div class="card-heading"><div><span class="card-index">01</span><div><h2>Séances du cours</h2><p>Ouvrez une séance pour écouter l’audio ou lire le texte brut.</p></div></div></div>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead><tr><th>Séance</th><th>Date du cours</th><th>Durée</th><th>Contenu</th><th>État</th><th></th></tr></thead>
+                  <tbody id="course-jobs-body"></tbody>
+                </table>
+                <div class="empty-table" id="course-jobs-empty" hidden><span>♪</span><strong>Aucune séance dans ce cours</strong><p>Ajoutez un audio depuis le tableau de bord.</p></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </main>
+    </div>
+
+    <dialog class="course-dialog" id="course-dialog">
+      <form id="course-form">
+        <header><div><span class="eyebrow" id="course-dialog-kicker">NOUVEAU COURS</span><h2 id="course-dialog-title">Créer un cours</h2><p>Les audios restent stockés avec leurs noms techniques uniques.</p></div><button class="icon-button" type="button" data-close-course aria-label="Fermer">×</button></header>
+        <div class="course-form-body">
+          <label class="form-field"><span>Nom du cours</span><input id="course-name" maxlength="80" required placeholder="Ex. Ecclésiologie" /></label>
+          <label class="form-field"><span>Enseignant <em>facultatif</em></span><input id="course-teacher" maxlength="100" placeholder="Ex. Prof. Jean Dupont" /></label>
+          <label class="form-field color-field"><span>Couleur</span><span><input id="course-color" type="color" value="#0d6b53" /><output id="course-color-value">#0d6b53</output></span></label>
+          <div class="form-alert" id="course-form-error" hidden></div>
+        </div>
+        <footer><button class="button button-secondary" type="button" data-close-course>Annuler</button><button class="button button-primary" id="save-course" type="submit">Enregistrer</button></footer>
+      </form>
+    </dialog>
+
+    <dialog class="confirm-dialog" id="delete-course-dialog"><form method="dialog"><span class="confirm-icon">!</span><h3>Supprimer ce cours ?</h3><p>Les audios et les textes seront conservés et déplacés automatiquement dans « Sans cours ».</p><div><button class="button button-secondary" value="cancel">Annuler</button><button class="button button-danger" value="confirm">Supprimer le cours</button></div></form></dialog>
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/assets/config.js"></script><script src="/assets/core.js"></script><script src="/assets/courses.js"></script>
+  </body>
+</html>

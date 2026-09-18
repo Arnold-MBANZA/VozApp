@@ -28,8 +28,30 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(second.status_code, 201)
         self.assertEqual(second.json()["user"]["role"], "user")
         headers = {"Authorization": f"Bearer {second.json()['token']}"}
+        created_course = self.client.post(
+            "/api/courses",
+            headers=headers,
+            json={
+                "name": "Ecclésiologie",
+                "teacher": "Prof. Test",
+                "color": "#2f7a63",
+            },
+        )
+        self.assertEqual(created_course.status_code, 201, created_course.text)
+        course_id = created_course.json()["course"]["id"]
+        self.assertEqual(
+            self.client.get(f"/api/courses/{course_id}", headers=self.admin_headers).status_code,
+            404,
+        )
         created = self.client.post(
-            "/api/jobs", headers=headers, data={"prompt": "ecclesiologia"},
+            "/api/jobs",
+            headers=headers,
+            data={
+                "prompt": "ecclesiologia",
+                "course_id": str(course_id),
+                "lesson_title": "Le sacerdoce dans Hébreux",
+                "lesson_date": "2026-09-18",
+            },
             files={"audio": ("cours.m4a", b"demo audio", "audio/mp4")},
         )
         self.assertEqual(created.status_code, 202, created.text)
@@ -44,6 +66,10 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(job["status"], "completed", job)
         self.assertTrue(job["has_audio"])
         self.assertTrue(job["has_text"])
+        self.assertEqual(job["course_id"], course_id)
+        self.assertEqual(job["course_name"], "Ecclésiologie")
+        self.assertEqual(job["lesson_title"], "Le sacerdoce dans Hébreux")
+        self.assertEqual(job["lesson_date"], "2026-09-18")
         self.assertIn("Igreja", job["transcript"])
         self.assertEqual(self.client.get(f"/api/jobs/{job_id}/audio", headers=headers).content, b"demo audio")
         txt = self.client.get(f"/api/jobs/{job_id}/download/txt", headers=headers)
@@ -58,12 +84,32 @@ class ApiFlowTests(unittest.TestCase):
         self.assertEqual(users.status_code, 200)
         self.assertEqual(len(users.json()["users"]), 2)
         self.assertEqual(self.client.get("/api/admin/users", headers=headers).status_code, 403)
+        archived = self.client.patch(
+            f"/api/courses/{course_id}",
+            headers=headers,
+            json={"is_archived": True},
+        )
+        self.assertEqual(archived.status_code, 200)
+        self.assertTrue(archived.json()["course"]["is_archived"])
+        rejected = self.client.post(
+            "/api/jobs",
+            headers=headers,
+            data={"course_id": str(course_id)},
+            files={"audio": ("autre.m4a", b"demo audio", "audio/mp4")},
+        )
+        self.assertEqual(rejected.status_code, 409)
+        removed_course = self.client.delete(f"/api/courses/{course_id}", headers=headers)
+        self.assertEqual(removed_course.status_code, 200)
+        unassigned = self.client.get(f"/api/jobs/{job_id}", headers=headers).json()["job"]
+        self.assertIsNone(unassigned["course_id"])
+        self.assertIsNone(unassigned["course_name"])
         self.assertEqual(self.client.delete(f"/api/jobs/{job_id}?target=both", headers=headers).status_code, 200)
         self.assertEqual(self.client.get(f"/api/jobs/{job_id}", headers=headers).status_code, 404)
 
     def test_protected_routes_require_authentication(self) -> None:
         self.assertEqual(self.client.get("/api/jobs").status_code, 401)
         self.assertEqual(self.client.get("/api/admin/users").status_code, 401)
+        self.assertEqual(self.client.get("/courses").status_code, 200)
 
 
 if __name__ == "__main__":
