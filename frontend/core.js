@@ -240,6 +240,85 @@
     }, 3600);
   }
 
+  function paginate(items, requestedPage = 1, pageSize = 5) {
+    const collection = Array.isArray(items) ? items : [];
+    const size = Math.max(1, Number(pageSize) || 5);
+    const total = collection.length;
+    const totalPages = Math.max(1, Math.ceil(total / size));
+    const page = Math.min(totalPages, Math.max(1, Number(requestedPage) || 1));
+    const start = (page - 1) * size;
+
+    return {
+      items: collection.slice(start, start + size),
+      page,
+      pageSize: size,
+      total,
+      totalPages,
+      start,
+      end: Math.min(start + size, total)
+    };
+  }
+
+  function paginationPages(current, total) {
+    if (total <= 7) {
+      return Array.from({ length: total }, (_, index) => index + 1);
+    }
+
+    const pages = new Set([1, total, current - 1, current, current + 1]);
+    const ordered = [...pages]
+      .filter((page) => page >= 1 && page <= total)
+      .sort((left, right) => left - right);
+    const result = [];
+
+    ordered.forEach((page, index) => {
+      if (index && page - ordered[index - 1] > 1) {
+        result.push("ellipsis");
+      }
+      result.push(page);
+    });
+
+    return result;
+  }
+
+  function renderPagination(target, pagination, onPageChange) {
+    const element = typeof target === "string"
+      ? document.getElementById(target)
+      : target;
+
+    if (!element) {
+      return;
+    }
+
+    if (!pagination.total || pagination.total <= pagination.pageSize) {
+      element.hidden = true;
+      element.innerHTML = "";
+      return;
+    }
+
+    element.hidden = false;
+    const pages = paginationPages(pagination.page, pagination.totalPages);
+    const pageButtons = pages.map((page) => {
+      if (page === "ellipsis") {
+        return '<span class="pagination-ellipsis" aria-hidden="true">…</span>';
+      }
+
+      const current = page === pagination.page;
+      return `<button class="pagination-button pagination-number${current ? " current" : ""}" type="button" data-page="${page}"${current ? ' aria-current="page"' : ""}>${page}</button>`;
+    }).join("");
+
+    element.innerHTML = `
+      <span class="pagination-summary">${pagination.start + 1}–${pagination.end} sur ${pagination.total}</span>
+      <nav class="pagination-actions" aria-label="Pagination">
+        <button class="pagination-button pagination-nav" type="button" data-page="${pagination.page - 1}" ${pagination.page === 1 ? "disabled" : ""}>← Précédent</button>
+        <span class="pagination-pages">${pageButtons}</span>
+        <button class="pagination-button pagination-nav" type="button" data-page="${pagination.page + 1}" ${pagination.page === pagination.totalPages ? "disabled" : ""}>Suivant →</button>
+      </nav>`;
+
+    element.querySelectorAll("[data-page]:not([disabled])").forEach((button) => {
+      button.addEventListener("click", () => onPageChange(Number(button.dataset.page)));
+    });
+  }
+
   async function requireUser(admin = false) {
     if (!token()) {
       location.href = "/login";
@@ -310,6 +389,8 @@
     initials,
     escape,
     toast,
+    paginate,
+    renderPagination,
     requireUser,
     logout,
     bindShell

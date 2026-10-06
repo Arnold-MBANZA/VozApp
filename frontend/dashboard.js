@@ -5,7 +5,8 @@
     courses: [],
     selected: null,
     audioUrl: null,
-    polling: null
+    polling: null,
+    historyPage: 1
   };
 
   const $ = (id) => document.getElementById(id);
@@ -110,8 +111,10 @@
         && (!dateFilter || jobDate === dateFilter);
     });
 
-    $("history-empty").hidden = jobs.length > 0;
-    $("history-body").innerHTML = jobs.map((job) => `
+    const pagination = Voz.paginate(jobs, state.historyPage, 5);
+    state.historyPage = pagination.page;
+    $("history-empty").hidden = pagination.total > 0;
+    $("history-body").innerHTML = pagination.items.map((job) => `
       <tr>
         <td><div class="file-cell"><span class="doc-icon">T</span><div><strong title="${Voz.escape(job.lesson_title || job.filename)}">${Voz.escape(job.lesson_title || job.filename)}</strong><small>${job.lesson_title ? `${Voz.escape(job.filename)} · ` : ""}${Voz.formatBytes(job.audio_size)}</small></div></div></td>
         <td><span class="course-chip" style="--course-color:${Voz.escape(job.course_color || "#718079")}">${Voz.escape(job.course_name || "Sans cours")}</span></td>
@@ -125,6 +128,10 @@
 
     document.querySelectorAll("[data-open-job]").forEach((button) => {
       button.addEventListener("click", () => openJob(button.dataset.openJob));
+    });
+    Voz.renderPagination("history-pagination", pagination, (page) => {
+      state.historyPage = page;
+      renderJobs();
     });
   }
 
@@ -278,13 +285,17 @@
     $("history-course").value = "all";
     $("history-status").value = "all";
     $("history-date").value = "";
+    state.historyPage = 1;
     renderJobs();
   }
 
   function bind() {
     Voz.bindShell();
     ["history-search", "history-course", "history-status", "history-date"].forEach((id) => {
-      $(id).addEventListener(id === "history-search" ? "input" : "change", renderJobs);
+      $(id).addEventListener(id === "history-search" ? "input" : "change", () => {
+        state.historyPage = 1;
+        renderJobs();
+      });
     });
     $("clear-filters").addEventListener("click", clearFilters);
     $("audio-input").addEventListener("change", (event) => updateFile(event.target.files[0]));

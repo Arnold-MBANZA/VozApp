@@ -1,7 +1,7 @@
 (() => {
   const state = {
     user: null, courses: [], jobs: [], selected: null, editing: null,
-    selectedExisting: new Set()
+    selectedExisting: new Set(), selectedJobs: [], sessionsPage: 1
   };
   const $ = (id) => document.getElementById(id);
   const statusMap = {
@@ -103,6 +103,8 @@
   }
 
   function renderDetail(course, jobs) {
+    state.selectedJobs = jobs;
+    state.sessionsPage = 1;
     $("detail-course-color").style.background = course.color;
     $("detail-course-name").textContent = course.name;
     $("detail-course-teacher").textContent = course.teacher || "Enseignant non renseigné";
@@ -118,8 +120,14 @@
     $("add-course-audio").hidden = course.is_archived;
     $("archive-course").textContent = course.is_archived ? "Réactiver" : "Archiver";
     $("add-course-audio").href = isUnassigned ? "/app#new-transcription" : `/app?course=${course.id}#new-transcription`;
-    $("course-jobs-empty").hidden = jobs.length > 0;
-    $("course-jobs-body").innerHTML = jobs.map((job) => `
+    renderCourseJobs();
+  }
+
+  function renderCourseJobs() {
+    const pagination = Voz.paginate(state.selectedJobs, state.sessionsPage, 5);
+    state.sessionsPage = pagination.page;
+    $("course-jobs-empty").hidden = pagination.total > 0;
+    $("course-jobs-body").innerHTML = pagination.items.map((job) => `
       <tr>
         <td><div class="file-cell"><span class="doc-icon">T</span><div><strong>${Voz.escape(job.lesson_title || job.filename)}</strong><small>${Voz.escape(job.filename)}</small></div></div></td>
         <td>${job.lesson_date ? Voz.formatDay(job.lesson_date) : Voz.formatDate(job.created_at)}</td>
@@ -129,6 +137,10 @@
         <td><a class="row-action row-action-link" href="/app?job=${job.id}">Ouvrir</a></td>
       </tr>
     `).join("");
+    Voz.renderPagination("course-jobs-pagination", pagination, (page) => {
+      state.sessionsPage = page;
+      renderCourseJobs();
+    });
   }
 
   function openCourseDialog(course = null) {
